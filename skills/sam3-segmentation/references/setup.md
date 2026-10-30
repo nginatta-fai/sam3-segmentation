@@ -10,13 +10,16 @@ key. Nothing requires the author's computer or a local endpoint.
 | Path | What you need | Account / downloads |
 |---|---|---|
 | Demo, geometry, review, validation, export | Python 3.12/3.13; CPU | Small Python wheels; no account |
-| Supplied SAM 3 backend | Linux x86-64, Python 3.12, NVIDIA driver compatible with CUDA 12.8 wheels | Several GB of runtime/model downloads; gated Hugging Face access |
+| SAM 3 on Linux x86-64 | Python 3.12, NVIDIA driver compatible with CUDA 12.8 wheels | Several GB of runtime/model downloads; gated Hugging Face access |
+| SAM 3 on Linux ARM64 (`aarch64`, e.g. GB10 / DGX Spark) | Python 3.12, CUDA 13.0-compatible NVIDIA driver (R580 or newer) | CUDA 13.0 wheels selected automatically; model smoke check still required |
 | Windows model inference | WSL2 Linux and an NVIDIA driver that supports WSL CUDA | Same model environment; do not install a second Linux kernel driver inside WSL |
 | macOS/MPS | Base tools work; this backend has no MPS implementation | Use an approved Linux GPU host or implement and validate an adapter |
 | CPU model inference | **Not implemented.** The tools refuse `--device cpu` | Use the base tools, or an approved Linux NVIDIA GPU machine |
 | Hosted visual review | Optional official provider application/API | User's own permitted access and explicit photo-upload consent |
 
 The portable wrapper is smoke-tested on an RTX 3090, not every GPU or OS.
+The ARM64 CUDA 13.0 dependency path is configured but has not yet passed a
+real-model smoke check here; dependency resolution alone is not inference validation.
 The base suite was run on Linux with Python 3.12 and 3.13. Windows/macOS base
 compatibility have not been tested here. CPU model inference is not implemented. Plan
 for **12–24 GB GPU memory and 16–32 GB system RAM** as a conservative working
@@ -72,7 +75,10 @@ pinned model environment. On Windows outside WSL, use the corresponding
 ## 2. Check the GPU without changing it
 
 ```sh
+uname -m
 nvidia-smi
+# Optional: shows a separately installed development toolkit, if any.
+if command -v nvcc >/dev/null 2>&1; then nvcc --version; fi
 ```
 
 Record the device index, driver and free memory. Never kill unrelated processes
@@ -81,20 +87,56 @@ to make space. Choose an available device explicitly with `--device cuda:N`.
 PyTorch wheel supplies CUDA userspace libraries, not the kernel driver. Install
 or update drivers only through the machine's normal authorized process.
 
+The `CUDA Version` in `nvidia-smi` describes the driver's supported CUDA level;
+`nvcc --version` describes the installed toolkit. Neither selects PyTorch's
+runtime. A CUDA 13-capable driver can run CUDA 12.8 wheels: matching the system
+toolkit exactly is not required, and this workflow needs no separate toolkit.
+The locked environment selects **CUDA 12.8 for Linux x86-64** and **CUDA 13.0 for
+Linux ARM64**, not by parsing `nvidia-smi`. On GB10 / DGX Spark (`aarch64`), use
+the normal `model` commands below; no local edits or global Torch install are
+needed. GB10 uses shared system memory; if `nvidia-smi` reports memory usage as
+`Not Supported`, inspect `free -h` too rather than treating it as zero available
+memory. This is not a blanket compatibility claim for Jetson or other ARM GPUs.
+See [NVIDIA's compatibility guide](https://docs.nvidia.com/deploy/cuda-compatibility/)
+and [PyTorch's published builds](https://pytorch.org/get-started/previous-versions/).
+
 ## 3. Create the isolated model environment
 
 After download/trust approval:
 
 ```sh
 sh "$S/scripts/run" model sync
-sh "$S/scripts/run" model python -c 'import torch; print(torch.__version__, torch.version.cuda); print("CUDA available:", torch.cuda.is_available())'
+sh "$S/scripts/run" model python - <<'PY'
+import torch
+from torchvision.ops import nms
+
+print("Torch:", torch.__version__, "CUDA runtime:", torch.version.cuda)
+assert torch.cuda.is_available(), "CUDA unavailable: check driver and environment"
+torch.cuda.set_device("cuda:0")  # Choose an available device explicitly.
+assert torch.cuda.is_bf16_supported(), "SAM 3 requires BF16 support"
+print("GPU:", torch.cuda.get_device_name(), "capability:", torch.cuda.get_device_capability())
+x = torch.eye(16, device="cuda:0", dtype=torch.bfloat16)
+assert torch.equal(x @ x, x)
+boxes = torch.tensor([[0., 0., 10., 10.]], device="cuda:0")
+scores = torch.ones(1, device="cuda:0")
+assert nms(boxes, scores, 0.5).tolist() == [0]
+torch.cuda.synchronize()
+print("CUDA tensor and Torchvision operator checks passed (no model weights loaded)")
+PY
 ```
 
 The source package is pinned to SAM 3 commit
-`0570b3a5be9c4e694f23d85232fb55f4a6f1f7fc`; Torch is pinned to 2.10.0 from its
-explicit CUDA 12.8 wheel index. The lock pins the resolved dependencies. Model
+`0570b3a5be9c4e694f23d85232fb55f4a6f1f7fc`; Torch is pinned to 2.10.0 and
+Torchvision to 0.25.0 from matching explicit `cu128` (x86-64) or `cu130` (ARM64)
+indexes. Python remains pinned to the 3.12 series. The lock pins the resolved
+dependencies for both Linux architectures. Model
 code is executable third-party code; a revision pin prevents silent drift, but
 is not a security review. The base environment intentionally has no Torch.
+
+The checks above exercise CUDA kernels without downloading weights; passing
+them is not a SAM 3 test. Run the generated-shape model control below after
+obtaining access. Changing the lock creates a new external environment; changing
+Torch/CUDA/hardware invalidates inference caches, so use a new run directory.
 
 ## 4. Obtain gated weights legitimately
 
@@ -145,9 +187,11 @@ larger configuration. Loading a model is not proof its masks are semantically ri
   BF16 support (NVIDIA Ampere or newer). CPU inference is not implemented.
 - **Missing SciPy/Pillow/pycocotools:** use the declared environment, not ad hoc
   installs in an unrelated global environment.
-- **Build fails on non-Linux or ARM:** the CUDA model lock targets Linux NVIDIA.
-  Do not claim those machines are supported; use the base path or an approved
-  Linux GPU host. Native compilation/toolchain work is outside this skill.
+- **Unsupported platform / missing wheel:** the model lock targets Linux
+  x86-64 and ARM64 only; Windows needs WSL2. On ARM64, confirm `uname -m` is
+  `aarch64` and the driver supports CUDA 13.0. Do not substitute x86-64 wheels,
+  assume all ARM/Jetson systems work, or silently fall back to CPU. Native
+  compilation/toolchain work is outside this skill.
 - **Interrupted inference:** rerun with the same canonical image, config,
   checkpoint, device, precision and batch size. Completed requests are cached.
   A different runtime belongs in a new run. Partial raw indexes are explicit.

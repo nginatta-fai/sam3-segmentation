@@ -15,12 +15,13 @@ description: >-
 license: MIT
 compatibility: >-
   Model inference needs Linux (or Windows WSL2), an NVIDIA GPU with drivers for
-  CUDA 12.8 (12-24 GB memory suggested), uv, Python 3.12, about 11 GB of
+  CUDA 12.8 on x86-64 or CUDA 13.0 on ARM64 (12-24 GB memory suggested),
+  uv, Python 3.12, about 11 GB of
   downloads plus room for run records, and the user's own approved Hugging Face
   access to facebook/sam3. No CPU or Apple
   GPU inference. The demo, review and export tools run anywhere uv runs.
 metadata:
-  version: "0.1.0"
+  version: "0.1.1"
   author: Aurélie Guisnet
   repository: https://github.com/lillyguisnet/sam3-segmentation
 ---

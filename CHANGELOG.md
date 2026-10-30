@@ -4,6 +4,17 @@ Versions follow [Semantic Versioning](https://semver.org/). Before 1.0, a minor
 version (0.2, 0.3, ...) may change commands or file formats; the changelog says
 how to move over.
 
+## 0.1.1 — Unreleased
+
+- Add a locked CUDA 13.0 model dependency path for Linux ARM64 (including GB10 /
+  DGX Spark), preserving CUDA 12.8 on Linux x86-64. Keep Torch at 2.10.0 and
+  explicitly pin matching Torchvision 0.25.0; SAM 3 source and weights are unchanged.
+- Clarify driver, toolkit and wheel-runtime differences, local-checkout
+  installation, and pre-weight CUDA operator checks. ARM64 real-model inference
+  remains unvalidated; run the opt-in smoke control after approved installation.
+- Regenerated locks create new external environments. Runtime changes require
+  new run directories; inference-cache identity safeguards are unchanged.
+
 ## 0.1.0 — 2026-10-24
 
 First public release.

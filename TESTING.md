@@ -1,5 +1,23 @@
 # Testing and reproducibility
 
+## CUDA 13.0 / ARM64 preparation — 26 October 2026 (0.1.1 unreleased)
+
+- **163 CPU tests passed** on Linux ARM64 with Python **3.12.3 and 3.13.11**.
+  New offline checks cover architecture-specific indexes, matching Torch /
+  Torchvision wheels, platform scope, and environment identity changes for
+  either project's manifest or lock. Lint and formatting checks passed.
+- Both locks passed `uv lock --check --offline`. Model sync **dry runs** selected
+  Torch **2.10.0+cu130** / Torchvision **0.25.0+cu130** on ARM64 and the preserved
+  **cu128** pair on x86-64. Dry runs do not install or execute these packages.
+- `skills-ref validate` and `claude plugin validate --strict .` passed.
+- No model packages or weights were installed for these checks; no CUDA kernels
+  or SAM 3 inference were run. The new ARM64 path still needs the authorized
+  CUDA-operator and real-model smoke checks in
+  [setup](skills/sam3-segmentation/references/setup.md).
+- The skill's trigger description and workflow body are unchanged. Provider
+  trigger/behaviour evals were not rerun; the historical results below are not
+  evidence of GB10 / CUDA 13.0 model validation.
+
 ## Release checks for 0.1.0 — 24 October 2026
 
 - **150 CPU tests passed** (Python 3.12, Linux). New: the skill header parsed by a

@@ -46,6 +46,11 @@ git clone https://github.com/lillyguisnet/sam3-segmentation
 python3 sam3-segmentation/install.py --target claude
 ```
 
+To install **local changes** from a downloaded checkout, run
+`python3 install.py --target claude` from its root (or `--target codex` / `pi`).
+The GitHub-based commands above fetch the published copy, not your local edits.
+Copying the skill does not install Python packages or download model weights.
+
 Then ask your agent in plain words. The skill loads by itself when the request
 fits; you can also name it (`/sam3-segmentation` in Claude Code, where a plugin
 install shows it as `/sam3-segmentation:sam3-segmentation`, or `$sam3-segmentation`
@@ -68,6 +73,12 @@ installing anything. It never asks for your Hugging Face token: you log in
 yourself with `hf auth login`. The Python environments are created outside the
 skill folder (in `~/.local/share/sam3-segmentation/`), so updates and several
 installed copies reuse them.
+
+The model environment automatically selects CUDA **12.8 on Linux x86-64** and
+CUDA **13.0 on Linux ARM64** (including GB10 / DGX Spark; requires an R580 or newer
+driver). PyTorch supplies its own CUDA runtime; your system toolkit does not need
+to match. The ARM64 path still needs a real-model smoke check; the historical
+model tests used an RTX 3090. See [setup](skills/sam3-segmentation/references/setup.md).
 
 ## Demo without a GPU (no segmentation)
 

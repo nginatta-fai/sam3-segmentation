@@ -1,7 +1,7 @@
 {
   "name": "sam3-segmentation",
   "displayName": "SAM 3 Segmentation",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Outline, mask or count objects in images with Meta's SAM 3 on a local NVIDIA GPU: quick direct calls, or a careful, auditable workflow for many small objects, with review, refinement, COCO/PNG exports and a viewer. Produces model proposals, not verified ground truth.",
   "author": {
     "name": "Aurélie Guisnet",

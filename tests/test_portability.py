@@ -126,19 +126,23 @@ def test_launcher_keeps_environments_outside_the_skill(tmp_path):
     assert SKILL not in Path(base).parents
 
 
-def test_launcher_environment_name_follows_the_lock(tmp_path):
+@pytest.mark.parametrize("environment", ["base", "model"])
+@pytest.mark.parametrize("filename", ["uv.lock", "pyproject.toml"])
+def test_launcher_environment_name_follows_the_lock(tmp_path, environment, filename):
     copy = tmp_path / "skill"
     shutil.copytree(SKILL, copy, ignore=shutil.ignore_patterns(".venv", "__pycache__"))
     launcher = copy / "scripts/run"
     env = {**os.environ, "SAM3_SEGMENTATION_HOME": str(tmp_path / "home")}
     before = subprocess.run(
-        ["sh", launcher, "base", "path"], env=env, capture_output=True, text=True
+        ["sh", launcher, environment, "path"], env=env, capture_output=True, text=True
     )
-    with (copy / "uv.lock").open("a") as lock:
-        lock.write("\n")
+    project = copy if environment == "base" else copy / "environments/sam3"
+    with (project / filename).open("a") as source:
+        source.write("\n")
     after = subprocess.run(
-        ["sh", launcher, "base", "path"], env=env, capture_output=True, text=True
+        ["sh", launcher, environment, "path"], env=env, capture_output=True, text=True
     )
+    assert before.returncode == after.returncode == 0
     assert before.stdout != after.stdout
 
 
